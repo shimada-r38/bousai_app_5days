@@ -1,16 +1,24 @@
 {% extends "base.html" %}
 
 {% block content %}
-<!-- 避難所マップ -->
-<h2>避難所マップ</h2>
-<div id="shelterMap" style="height: 300px;"></div>
+<section class="dashboard-panel" aria-labelledby="mapTitle">
+    <div class="section-heading">
+        <h2 id="mapTitle"><span class="heading-mark" aria-hidden="true">●</span>避難所マップ</h2>
+    </div>
+    <div class="map-frame">
+        <div id="shelterMap" aria-label="避難所周辺地図"></div>
+    </div>
+</section>
 
-<!-- 気象警報・注意報 -->
-<h2>青森市 気象警報・注意報</h2>
-<p>10分おきに自動更新されます。</p>
-<div id="weatherContent">
-  <p>読み込み中...</p>
-</div>
+<section class="dashboard-panel" aria-labelledby="weatherTitle">
+    <div class="section-heading">
+        <h2 id="weatherTitle"><span class="heading-mark" aria-hidden="true">☁</span>気象警報・注意報</h2>
+        <p class="refresh-note"><span aria-hidden="true">↻</span> 10分おきに自動更新</p>
+    </div>
+    <div id="weatherContent" class="weather-content" aria-live="polite" aria-busy="true">
+        <p class="weather-loading">気象情報を読み込み中...</p>
+    </div>
+</section>
 
 <!-- Leaflet の読み込み -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -18,56 +26,93 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // 地図の初期化（藤沢市周辺を中心に設定）
-    const map = L.map('shelterMap').setView([35.3390, 139.4903], 12);
+    const mapElement = document.getElementById('shelterMap');
+    if (window.L) {
+        const map = L.map(mapElement).setView([35.3390, 139.4903], 12);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors',
+            referrerPolicy: 'strict-origin-when-cross-origin'
+        }).addTo(map);
+    } else {
+        mapElement.textContent = '地図を読み込めませんでした。';
+        mapElement.style.display = 'grid';
+        mapElement.style.placeItems = 'center';
+    }
 
-    // OpenStreetMapタイルを追加
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors',
-        referrerPolicy: 'strict-origin-when-cross-origin'
-    }).addTo(map);
-
-    // 気象警報・注意報の自動更新機能
     function updateWeatherWarnings() {
         fetch('/api/weather_warnings')
             .then(response => response.json())
             .then(data => {
-                console.log('気象情報を更新しました:', data);
                 updateWeatherContent(data);
             })
-            .catch(error => {
-                console.error('気象情報の更新に失敗しました:', error);
+            .catch(() => {
+                updateWeatherContent({ error: true });
             });
     }
 
     function updateWeatherContent(data) {
         const weatherContent = document.getElementById('weatherContent');
+        weatherContent.replaceChildren();
+        weatherContent.setAttribute('aria-busy', 'false');
 
         if (data.error) {
-            weatherContent.innerHTML = '<p>気象情報の取得に失敗しました</p>';
+            const errorMessage = document.createElement('p');
+            errorMessage.className = 'weather-error';
+            errorMessage.setAttribute('role', 'alert');
+            errorMessage.textContent = '気象情報の取得に失敗しました';
+            weatherContent.append(errorMessage);
             return;
         }
 
-        let warningsHtml = '';
-        if (data.warnings && data.warnings.length > 0) {
-            warningsHtml = '<ul>';
-            data.warnings.forEach(warning => {
-                warningsHtml += `<li>${warning.name}（${warning.status}）</li>`;
+        const location = document.createElement('p');
+        location.className = 'weather-location';
+        location.innerHTML = '<span class="weather-location__icon" aria-hidden="true">●</span>';
+        const locationName = document.createElement('span');
+        locationName.textContent = data.area_name || '対象地域';
+        location.append(locationName);
+        weatherContent.append(location);
+
+        const warnings = Array.isArray(data.warnings) ? data.warnings : [];
+        const status = document.createElement('p');
+        status.className = `weather-status ${warnings.length ? 'has-warnings' : 'is-clear'}`;
+        const statusIcon = document.createElement('span');
+        statusIcon.setAttribute('aria-hidden', 'true');
+        statusIcon.textContent = warnings.length ? '!' : '✓';
+        const statusText = document.createElement('span');
+        statusText.textContent = warnings.length
+            ? '警報・注意報が発表されています'
+            : '現在、警報・注意報は発表されていません';
+        status.append(statusIcon, statusText);
+        weatherContent.append(status);
+
+        if (warnings.length) {
+            const warningList = document.createElement('ul');
+            warningList.className = 'weather-list';
+            warnings.forEach(warning => {
+                const item = document.createElement('li');
+                item.textContent = `${warning.name || '警報・注意報'}（${warning.status || '発表中'}）`;
+                warningList.append(item);
             });
-            warningsHtml += '</ul>';
-        } else {
-            warningsHtml = '<p>現在、警報・注意報は発表されていません</p>';
+            weatherContent.append(warningList);
         }
 
-        weatherContent.innerHTML = `
-            <p>対象地域: ${data.area_name || '青森市'}</p>
-            ${warningsHtml}
-            <p>最終確認: <span id="lastFetchTime">${data.last_fetch_time || '更新中...'}</span></p>
-            <p>気象庁最終発表: ${data.report_time || '不明'}</p>
-        `;
+        appendWeatherMeta(weatherContent, '◷', 'データ取得', data.last_fetch_time || '更新中...');
+        appendWeatherMeta(weatherContent, '↗', '気象庁最終発表', data.report_time || '不明');
     }
 
-    // 初回表示＋10分（600,000ミリ秒）おきに自動更新
+    function appendWeatherMeta(container, icon, label, value) {
+        const row = document.createElement('p');
+        row.className = 'weather-meta';
+        const symbol = document.createElement('span');
+        symbol.className = 'weather-meta__icon';
+        symbol.setAttribute('aria-hidden', 'true');
+        symbol.textContent = icon;
+        const text = document.createElement('span');
+        text.textContent = `${label}: ${value}`;
+        row.append(symbol, text);
+        container.append(row);
+    }
+
     updateWeatherWarnings();
     setInterval(updateWeatherWarnings, 600000);
 });

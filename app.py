@@ -28,8 +28,9 @@ ADMIN_CREDENTIALS = {
 PREFECTURE_CODE = "020000"  # 青森県
 AREA_NAME = "青森市"
 
-# ワークショップ課題：青森市の市区町村コードに変更する
-AREA_CODE = "1420500"
+# 気象庁警報JSONの青森市 areaCode（仕様書の市町村コード 220100）
+AREA_CODE = "0220100"
+HAZARD_TYPES = ["津波", "土砂災害", "洪水", "地震", "高潮"]
 
 WARNING_URL = (
     f"https://www.jma.go.jp/bosai/warning/data/r8/{PREFECTURE_CODE}.json"
@@ -101,6 +102,11 @@ def save_instructions():
             json.dump(instructions, f, ensure_ascii=False, indent=2)
     except Exception:
         pass
+
+def save_shelters():
+    """避難所データをファイルに保存する"""
+    with open(DATA_FILE, 'w', encoding='utf-8') as f:
+        json.dump(shelters, f, ensure_ascii=False, indent=2)
 # ────────────────────────────────
 
 # ────────────────────────────────
@@ -139,9 +145,28 @@ def format_report_time(iso_str):
         return iso_str
 
 
-def filter_shelters(district=None):
-    """district 指定があれば一致する避難所のみ、なければ全件を返す"""
-    return [s for s in shelters if not district or s.get('district') == district]
+def filter_shelters(district=None, keyword=None, hazard=None,
+                    pet_allowed=False, barrier_free=False):
+    """指定された地区・災害安全性・設備・名称で避難所を絞り込む"""
+    results = shelters
+    if district:
+        results = [item for item in results if item.get('district') == district]
+    if keyword:
+        keyword = keyword.casefold()
+        results = [
+            item for item in results
+            if keyword in item.get('name', '').casefold()
+        ]
+    if hazard:
+        results = [
+            item for item in results
+            if hazard in item.get('safe_for', [])
+        ]
+    if pet_allowed:
+        results = [item for item in results if item.get('pet_allowed') is True]
+    if barrier_free:
+        results = [item for item in results if item.get('barrier_free') is True]
+    return results
 
 
 def parse_area_warnings(warning_data):
@@ -278,20 +303,66 @@ def logout():
     return redirect(url_for('index'))
 
 # 避難所登録ページ※user が避難所登録ページについて具体的に修正指示しない限り、このコードは正しいのでこのまま保持すること。
-@app.route('/shelter_register')
+@app.route('/shelter_register', methods=['GET', 'POST'])
 @login_required
 def shelter_register():
+    if request.method == 'POST':
+        name = request.form.get('name', '').strip()
+        if not name:
+            return render_template(
+                'shelter_register.html', error=True,
+                message='避難所名を入力してください。'
+            )
+
+        shelter = {
+            'id': max((item.get('id', 0) for item in shelters), default=0) + 1,
+            'name': name,
+            'district': request.form.get('district', '').strip(),
+            'safe_for': [
+                hazard for hazard in request.form.getlist('safe_for')
+                if hazard in HAZARD_TYPES
+            ],
+            'pet_allowed': {'true': True, 'false': False}.get(
+                request.form.get('pet_allowed')
+            ),
+            'barrier_free': {'true': True, 'false': False}.get(
+                request.form.get('barrier_free')
+            )
+        }
+        shelters.append(shelter)
+        try:
+            save_shelters()
+        except OSError:
+            shelters.pop()
+            return render_template(
+                'shelter_register.html', error=True,
+                message='避難所情報を保存できませんでした。'
+            )
+
+        return render_template(
+            'shelter_register.html', success=True,
+            message=f'{name}を登録しました。'
+        )
+
     return render_template('shelter_register.html')
 
 # 避難所検索ページ
 @app.route('/shelter_search')
 def shelter_search():
-    return render_template('shelter_search.html')
+    districts = sorted({
+        item.get('district') for item in shelters
+        if item.get('district')
+    })
+    return render_template(
+        'shelter_search.html', districts=districts, hazard_types=HAZARD_TYPES
+    )
 
 # 全施設一覧ページ
 @app.route('/all_shelters')
 def all_shelters():
-    return render_template('search_results.html', results=shelters)
+    return render_template(
+        'search_results.html', results=shelters, all_shelters=True
+    )
 
 
 # 指示ボード：住民向けの指示を一覧で確認する
@@ -304,8 +375,37 @@ def board():
 # 検索結果ページ：templates/search_results.html を返す
 @app.route('/search_results')
 def search_results():
-    results = filter_shelters(request.args.get('district'))
-    return render_template('search_results.html', results=results)
+    district = request.args.get('district', '').strip()
+    keyword = request.args.get('keyword', '').strip()
+    hazard = request.args.get('hazard', '').strip()
+    if hazard not in HAZARD_TYPES:
+        hazard = ''
+    pet_allowed = request.args.get('pet_allowed') == 'true'
+    barrier_free = request.args.get('barrier_free') == 'true'
+    results = filter_shelters(
+        district=district or None,
+        keyword=keyword or None,
+        hazard=hazard or None,
+        pet_allowed=pet_allowed,
+        barrier_free=barrier_free
+    )
+    districts = sorted({
+        item.get('district') for item in shelters
+        if item.get('district')
+    })
+    return render_template(
+        'search_results.html',
+        results=results,
+        all_shelters=False,
+        districts=districts,
+        criteria={
+            'district': district,
+            'keyword': keyword,
+            'hazard': hazard,
+            'pet_allowed': pet_allowed,
+            'barrier_free': barrier_free
+        }
+    )
 
 # JSON API：/shelters?district=地区名
 @app.route('/shelters', methods=['GET'])

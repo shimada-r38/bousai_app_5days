@@ -1,23 +1,63 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h2>避難所登録</h2>
-<p>新しい避難所情報を登録します。</p>
+<section class="dashboard-panel" aria-labelledby="registerTitle">
+<h2 class="search-page-title" id="registerTitle">避難所登録</h2>
+<p class="search-lead">施設情報を入力します。安全性や設備は確認できた内容だけ登録してください。</p>
 
-<!-- 成功・エラーメッセージ表示 -->
 {% if success %}
-  <p>{{ message }}</p>
+  <p role="status">{{ message }}</p>
 {% endif %}
 
 {% if error %}
-  <p>{{ message }}</p>
+  <p role="alert">{{ message }}</p>
 {% endif %}
 
-<form method="POST">
-  <p>
-    <label for="name">避難所名（必須）</label><br>
-    <input type="text" id="name" name="name">
-  </p>
-  <p><button type="submit">登録</button></p>
+<form class="search-form" method="POST">
+  <div class="form-field">
+    <label for="name">避難所名（必須）</label>
+    <input class="form-control" type="text" id="name" name="name" required>
+  </div>
+  <div class="form-field">
+    <label for="district">地区</label>
+    <input class="form-control" type="text" id="district" name="district" placeholder="例：片瀬">
+  </div>
+
+  <fieldset class="check-group">
+    <legend>安全が確認されている災害種別</legend>
+    <div class="check-options">
+      {% for hazard in hazard_types %}
+        <label class="check-option">
+          <input type="checkbox" name="safe_for" value="{{ hazard }}">
+          <span>{{ hazard }}</span>
+        </label>
+      {% endfor %}
+    </div>
+    <p class="form-help">確認できていない災害種別にはチェックしないでください。</p>
+  </fieldset>
+
+  <div class="search-form__grid">
+    <div class="form-field">
+      <label for="pet_allowed">ペットの受け入れ</label>
+      <select class="form-control" id="pet_allowed" name="pet_allowed">
+        <option value="">未確認</option>
+        <option value="true">受け入れ可</option>
+        <option value="false">受け入れ不可</option>
+      </select>
+    </div>
+    <div class="form-field">
+      <label for="barrier_free">バリアフリー対応</label>
+      <select class="form-control" id="barrier_free" name="barrier_free">
+        <option value="">未確認</option>
+        <option value="true">対応あり</option>
+        <option value="false">対応なし</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="search-actions">
+    <button class="action-button action-button--primary" type="submit">避難所を登録</button>
+  </div>
 </form>
+</section>
 {% endblock %}

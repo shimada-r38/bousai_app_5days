@@ -1,20 +1,43 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h2>検索結果</h2>
+<section class="dashboard-panel" aria-labelledby="resultsTitle">
+  <h2 class="search-page-title" id="resultsTitle">{% if all_shelters %}登録施設一覧{% else %}検索結果{% endif %}</h2>
+  <p class="results-summary">{{ results|length }}件の避難所</p>
 
-{% if results %}
-  <ul>
-    {% for shelter in results %}
-    <li>{{ shelter.name }}</li>
-    {% endfor %}
-  </ul>
-{% else %}
-  <p>該当する避難所が見つかりませんでした</p>
-{% endif %}
+  {% if results %}
+    <ul class="results-list">
+      {% for shelter in results %}
+        <li class="shelter-result">
+          <h3>{{ shelter.name }}</h3>
+          <p><span class="result-label">地区：</span>{{ shelter.get('district') or '未登録' }}</p>
+          <p>
+            <span class="result-label">安全確認済みの災害：</span>
+            {% if shelter.get('safe_for') %}
+              {{ shelter.get('safe_for')|join('、') }}
+            {% else %}
+              <span class="result-unknown">未登録</span>
+            {% endif %}
+          </p>
+          <p>
+            <span class="result-label">ペット：</span>
+            {% if shelter.get('pet_allowed') is none %}<span class="result-unknown">未登録</span>
+            {% elif shelter.get('pet_allowed') %}可{% else %}不可{% endif %}
+            <span class="result-label">　バリアフリー：</span>
+            {% if shelter.get('barrier_free') is none %}<span class="result-unknown">未登録</span>
+            {% elif shelter.get('barrier_free') %}対応{% else %}未対応{% endif %}
+          </p>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="empty-results">条件に合う避難所が見つかりませんでした。条件を減らすか、未登録の情報は施設へ確認してください。</p>
+  {% endif %}
 
-<p>
-  <a href="/shelter_search">検索画面に戻る</a> |
-  <a href="/">トップページへ戻る</a>
-</p>
+  <p class="search-note">災害への安全性や設備情報が未登録の施設は、条件検索の対象外です。現地の状況や自治体の最新情報も確認してください。</p>
+  <nav class="page-actions" aria-label="ページ操作">
+    <a class="action-button action-button--primary" href="/shelter_search">検索画面に戻る</a>
+    <a class="action-button action-button--secondary" href="/">ホームに戻る</a>
+  </nav>
+</section>
 {% endblock %}

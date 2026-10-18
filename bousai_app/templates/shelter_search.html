@@ -1,8 +1,66 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h2>避難所検索</h2>
-<p>登録されている避難所を確認できます。</p>
+<section class="dashboard-panel" aria-labelledby="searchTitle">
+	<h2 class="search-page-title" id="searchTitle">避難所を検索</h2>
+	<p class="search-lead">災害の種類や必要な設備から、避難先を探せます。</p>
 
-<p><a href="/all_shelters">全施設一覧</a></p>
+	<form class="search-form" action="/search_results" method="get">
+		<div class="search-form__grid">
+			<div class="form-field">
+				<label for="hazard">災害種別</label>
+				<select class="form-control" id="hazard" name="hazard">
+					<option value="">指定しない</option>
+					{% for hazard in hazard_types %}
+						<option value="{{ hazard }}">{{ hazard }}</option>
+					{% endfor %}
+				</select>
+				<p class="form-help">選んだ災害への安全が確認された施設に絞り込みます。</p>
+			</div>
+
+			<div class="form-field">
+				<label for="district">地区</label>
+				<select class="form-control" id="district" name="district">
+					<option value="">すべての地区</option>
+					{% for district in districts %}
+						<option value="{{ district }}">{{ district }}</option>
+					{% endfor %}
+				</select>
+				<p class="form-help">例：片瀬、御所見</p>
+			</div>
+
+			<div class="form-field">
+				<label for="keyword">避難所名</label>
+				<input class="form-control" type="search" id="keyword" name="keyword"
+							 placeholder="例：片瀬小学校" autocomplete="organization">
+			</div>
+
+			<fieldset class="check-group">
+				<legend>必要な設備</legend>
+				<div class="check-options">
+					<label class="check-option">
+						<input type="checkbox" name="pet_allowed" value="true">
+						<span>ペット可</span>
+					</label>
+					<label class="check-option">
+						<input type="checkbox" name="barrier_free" value="true">
+						<span>バリアフリー</span>
+					</label>
+				</div>
+			</fieldset>
+		</div>
+
+		<div class="search-actions">
+			<button class="action-button action-button--primary" type="submit">条件を指定して検索</button>
+			<a class="action-button action-button--secondary" href="/shelter_search">条件をクリア</a>
+		</div>
+	</form>
+
+	<p class="search-note">災害への安全性や設備情報が未登録の施設は、該当条件で検索しても表示されません。避難前に施設や自治体の最新情報も確認してください。</p>
+
+	<nav class="search-shortcuts" aria-label="関連ページ">
+		<a href="/all_shelters">全施設一覧を見る</a>
+		<a href="/">ホームに戻る</a>
+	</nav>
+</section>
 {% endblock %}

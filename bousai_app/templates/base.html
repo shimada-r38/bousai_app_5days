@@ -4,31 +4,395 @@
   <meta charset="utf-8">
   <title>{% block title %}防災アプリ{% endblock %}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    :root {
+      color-scheme: light;
+      --blue: #2457a6;
+      --blue-dark: #194789;
+      --ink: #263445;
+      --muted: #66778a;
+      --line: #e3e9f0;
+      --page: #f4f7fa;
+      --green: #24864a;
+      --red: #b42318;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--page);
+      color: var(--ink);
+      font-family: "Noto Sans JP", "Yu Gothic", Meiryo, sans-serif;
+      line-height: 1.6;
+    }
+
+    .site-header {
+      position: relative;
+      z-index: 1000;
+      background: var(--blue);
+      box-shadow: 0 2px 8px rgba(25, 48, 78, 0.16);
+    }
+
+    .site-header__inner {
+      width: min(calc(100% - 40px), 1120px);
+      min-height: 70px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .site-title {
+      margin: 0;
+      color: #fff;
+      font-size: 22px;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    .menu-toggle {
+      width: 44px;
+      height: 44px;
+      display: grid;
+      place-content: center;
+      gap: 5px;
+      border: 1px solid rgba(255, 255, 255, 0.45);
+      border-radius: 6px;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    .menu-toggle span {
+      width: 21px;
+      height: 2px;
+      display: block;
+      background: #fff;
+    }
+
+    .menu-toggle:hover, .menu-toggle:focus-visible {
+      background: rgba(255, 255, 255, 0.14);
+    }
+
+    .site-nav {
+      position: absolute;
+      top: 100%;
+      right: max(20px, calc((100vw - 1120px) / 2));
+      width: min(280px, calc(100vw - 40px));
+      padding: 8px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      box-shadow: 0 8px 24px rgba(30, 48, 70, 0.18);
+    }
+
+    .site-nav[hidden] { display: none; }
+
+    .site-nav a, .site-nav__status {
+      display: block;
+      padding: 10px 12px;
+      border-radius: 4px;
+      color: var(--ink);
+      text-decoration: none;
+    }
+
+    .site-nav a:hover, .site-nav a:focus-visible {
+      background: #edf3fb;
+      color: var(--blue-dark);
+    }
+
+    .site-nav__status {
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .page-shell {
+      width: min(calc(100% - 40px), 910px);
+      margin: 32px auto 56px;
+    }
+
+    .dashboard-panel {
+      margin-bottom: 28px;
+      padding: 24px 26px 28px;
+      border: 1px solid #e8edf3;
+      border-radius: 8px;
+      background: #fff;
+      box-shadow: 0 5px 18px rgba(41, 63, 88, 0.06);
+    }
+
+    .section-heading {
+      min-height: 34px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .section-heading h2 {
+      margin: 0;
+      color: var(--blue);
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    .heading-mark {
+      margin-right: 8px;
+      color: var(--blue);
+    }
+
+    .map-frame {
+      height: 365px;
+      overflow: hidden;
+      border-radius: 6px;
+      background: #e5edf2;
+    }
+
+    #shelterMap {
+      width: 100%;
+      height: 100%;
+    }
+
+    .refresh-note {
+      margin: 0;
+      color: var(--green);
+      font-size: 14px;
+      white-space: nowrap;
+    }
+
+    .weather-content {
+      min-height: 154px;
+      padding: 16px 18px;
+      border-radius: 6px;
+      background: #f4f6f8;
+    }
+
+    .weather-location, .weather-meta, .weather-status {
+      display: flex;
+      align-items: flex-start;
+      gap: 9px;
+    }
+
+    .weather-location { margin: 0 0 10px; }
+    .weather-location__icon, .weather-meta__icon { color: var(--muted); }
+
+    .weather-status {
+      margin: 0 0 12px;
+      font-weight: 700;
+    }
+
+    .weather-status.is-clear { color: var(--green); }
+    .weather-status.has-warnings, .weather-error { color: var(--red); }
+
+    .weather-list {
+      margin: 0 0 14px 26px;
+      padding: 0;
+    }
+
+    .weather-meta {
+      margin: 5px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .weather-loading, .weather-error { margin: 0; }
+
+    .search-page-title {
+      margin: 0 0 8px;
+      color: var(--blue);
+      font-size: 26px;
+    }
+
+    .search-lead { margin: 0 0 22px; color: var(--muted); }
+
+    .search-form { display: grid; gap: 22px; }
+
+    .search-form__grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 20px 24px;
+    }
+
+    .form-field { min-width: 0; }
+
+    .form-field > label, .form-field__label {
+      display: block;
+      margin-bottom: 7px;
+      color: var(--ink);
+      font-weight: 700;
+    }
+
+    .form-control {
+      width: 100%;
+      min-height: 52px;
+      padding: 10px 12px;
+      border: 1px solid #aebdcd;
+      border-radius: 5px;
+      background: #fff;
+      color: var(--ink);
+      font: inherit;
+    }
+
+    .form-control:focus-visible, .check-option input:focus-visible {
+      outline: 3px solid #8ab6ee;
+      outline-offset: 2px;
+    }
+
+    .form-help { margin: 6px 0 0; color: var(--muted); font-size: 14px; }
+
+    .check-group {
+      min-width: 0;
+      margin: 0;
+      padding: 0;
+      border: 0;
+    }
+
+    .check-group legend {
+      margin-bottom: 8px;
+      font-weight: 700;
+    }
+
+    .check-options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .check-option {
+      min-height: 48px;
+      padding: 10px 13px;
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      border: 1px solid #c5d0dc;
+      border-radius: 5px;
+      background: #fff;
+      cursor: pointer;
+    }
+
+    .check-option input {
+      width: 20px;
+      height: 20px;
+      margin: 0;
+      accent-color: var(--blue);
+    }
+
+    .search-actions, .page-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .action-button {
+      min-height: 54px;
+      padding: 11px 20px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid transparent;
+      border-radius: 5px;
+      font: inherit;
+      font-weight: 700;
+      text-align: center;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .action-button--primary { background: var(--blue); color: #fff; }
+    .action-button--primary:hover { background: var(--blue-dark); }
+    .action-button--secondary { border-color: #aebdcd; background: #fff; color: var(--blue-dark); }
+    .action-button--secondary:hover { background: #edf3fb; }
+
+    .search-note {
+      margin: 20px 0 0;
+      padding: 12px 14px;
+      border-left: 4px solid #d6921b;
+      background: #fff8e9;
+      color: #624a1e;
+      font-size: 14px;
+    }
+
+    .search-shortcuts {
+      margin-top: 20px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 18px;
+    }
+
+    .search-shortcuts a { color: var(--blue-dark); font-weight: 700; }
+
+    .results-summary {
+      margin: 0 0 18px;
+      color: var(--muted);
+    }
+
+    .results-list { margin: 0; padding: 0; list-style: none; }
+
+    .shelter-result {
+      padding: 18px 2px;
+      border-top: 1px solid var(--line);
+    }
+
+    .shelter-result:first-child { border-top: 0; }
+    .shelter-result h3 { margin: 0 0 6px; color: var(--ink); font-size: 19px; }
+    .shelter-result p { margin: 5px 0; }
+    .result-label { color: var(--muted); }
+    .result-unknown { color: #845f1a; }
+    .empty-results { margin: 0 0 20px; }
+
+    @media (max-width: 600px) {
+      .site-header__inner { width: calc(100% - 32px); min-height: 62px; }
+      .site-title { font-size: 20px; }
+      .page-shell { width: calc(100% - 24px); margin: 20px auto 36px; }
+      .dashboard-panel { margin-bottom: 16px; padding: 18px 16px 20px; }
+      .section-heading { align-items: flex-start; flex-direction: column; gap: 4px; }
+      .section-heading h2 { font-size: 18px; }
+      .map-frame { height: 320px; }
+      .weather-content { padding: 14px; }
+      .search-page-title { font-size: 23px; }
+      .search-form__grid { grid-template-columns: 1fr; gap: 18px; }
+      .search-actions .action-button { width: 100%; }
+    }
+  </style>
 </head>
 <body>
-  <!-- ヘッダー -->
-  <h1>防災アプリ</h1>
+  <header class="site-header">
+    <div class="site-header__inner">
+      <h1 class="site-title">防災アプリ</h1>
+      <button class="menu-toggle" type="button" aria-label="メニューを開く" aria-controls="siteNav" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+    <nav class="site-nav" id="siteNav" aria-label="メインナビゲーション" hidden>
+      <a href="/">ホーム</a>
+      <a href="/shelter_search">避難所検索</a>
+      <a href="/shelter_register">避難所登録</a>
+      <a href="/board">指示・発信ボード</a>
+      {% if session.logged_in %}
+        <span class="site-nav__status">ログイン中{% if session.username %}（{{ session.username }}）{% endif %}</span>
+        <a href="/logout">ログアウト</a>
+      {% else %}
+        <span class="site-nav__status">未ログイン</span>
+        <a href="/login">ログイン</a>
+      {% endif %}
+    </nav>
+  </header>
 
-  <!-- ナビゲーション -->
-  <nav>
-    <a href="/">ホーム</a> |
-    <a href="/shelter_search">避難所検索</a> |
-    <a href="/shelter_register">避難所登録</a> |
-    <a href="/board">指示・発信ボード</a>
-    ｜
-    {% if session.logged_in %}
-      ログイン中{% if session.username %}（{{ session.username }}）{% endif %}
-      <a href="/logout">ログアウト</a>
-    {% else %}
-      未ログイン
-      <a href="/login">ログイン</a>
-    {% endif %}
-  </nav>
-  <hr>
-
-  <main>
+  <main class="page-shell">
     <!-- ここに子テンプレートの content が入る -->
     {% block content %}{% endblock %}
   </main>
+  <script>
+    const menuToggle = document.querySelector('.menu-toggle');
+    const siteNav = document.getElementById('siteNav');
+    menuToggle.addEventListener('click', function() {
+      const isExpanded = menuToggle.getAttribute('aria-expanded') === 'true';
+      menuToggle.setAttribute('aria-expanded', String(!isExpanded));
+      menuToggle.setAttribute('aria-label', isExpanded ? 'メニューを開く' : 'メニューを閉じる');
+      siteNav.hidden = isExpanded;
+    });
+  </script>
 </body>
 </html>
